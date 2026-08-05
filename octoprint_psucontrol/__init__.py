@@ -96,10 +96,11 @@ class PSUControl(octoprint.plugin.StartupPlugin,
             autoOn = False,
             autoOnTriggerGCodeCommands = "G0,G1,G2,G3,G10,G11,G28,G29,G32,M104,M106,M109,M140,M190",
             enablePowerOffWarningDialog = True,
+            warnIfPowerOffAboveMaxTemp = True,
             powerOffWhenIdle = False,
             idleTimeout = 30,
             idleIgnoreCommands = 'M105',
-            idleTimeoutWaitTemp = 50,
+            maxExtruderTemp = 50,
             turnOnWhenApiUploadPrint = False,
             turnOffWhenError = False
         )
@@ -393,7 +394,7 @@ class PSUControl(octoprint.plugin.StartupPlugin,
 
             highest_temp, heaters_above_waittemp = self._get_tool_temperature_state()
 
-            if highest_temp <= self.config['idleTimeoutWaitTemp']:
+            if highest_temp <= self.config['maxExtruderTemp']:
                 self._waitForHeaters = False
                 return True
 
@@ -423,7 +424,7 @@ class PSUControl(octoprint.plugin.StartupPlugin,
                 continue
 
             self._logger.debug("Heater {} = {}C".format(heater, temp))
-            if temp > self.config['idleTimeoutWaitTemp']:
+            if temp > self.config['maxExtruderTemp']:
                 heaters_above_waittemp.append(heater)
 
             if temp > highest_temp:
@@ -690,7 +691,7 @@ class PSUControl(octoprint.plugin.StartupPlugin,
 
 
     def get_settings_version(self):
-        return 4
+        return 5
 
 
     def on_settings_migrate(self, target, current=None):
@@ -803,6 +804,14 @@ class PSUControl(octoprint.plugin.StartupPlugin,
             # Remove now unused config option
             self._logger.info("Removing Setting: GPIOMode")
             self._settings.remove(["GPIOMode"])
+
+        if current < 5:
+            # v5 renames idleTimeoutWaitTemp to maxExtruderTemp.
+            cur_maxExtruderTemp = self._settings.get_int(["idleTimeoutWaitTemp"])
+            if cur_maxExtruderTemp is not None:
+                self._logger.info("Migrating Setting: idleTimeoutWaitTemp={} -> maxExtruderTemp={}".format(cur_maxExtruderTemp, cur_maxExtruderTemp))
+                self._settings.set_int(["maxExtruderTemp"], cur_maxExtruderTemp)
+                self._settings.remove(["idleTimeoutWaitTemp"])
 
 
     def get_template_vars(self):

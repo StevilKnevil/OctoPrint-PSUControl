@@ -108,15 +108,51 @@ $(function() {
             }
         };
 
+        self.showStandardPowerOffWarning = function() {
+            showConfirmationDialog({
+                message: "You are about to turn off the PSU.",
+                onproceed: function() {
+                    self.turnPSUOff();
+                }
+            });
+        };
+
+        self.showHighTempPowerOffWarning = function(currentTemp, threshold) {
+            showConfirmationDialog({
+                title: "Hot extruder detected",
+                message: "The extruder is currently at " + currentTemp + "°C, which is above the configured " + threshold + "°C wait temperature.",
+                question: "Turning the PSU off now can stop active heating immediately and may damage a print or cause unsafe cooling.",
+                cancel: "Keep PSU on",
+                proceed: "Turn PSU off now",
+                proceedClass: "danger",
+                noclose: true,
+                onproceed: function() {
+                    self.turnPSUOff();
+                }
+            });
+        };
+
         self.togglePSU = function() {
             if (self.isPSUOn()) {
                 if (self.settings.plugins.psucontrol.enablePowerOffWarningDialog()) {
-                    showConfirmationDialog({
-                        message: "You are about to turn off the PSU.",
-                        onproceed: function() {
-                            self.turnPSUOff();
-                        }
-                    });
+                    if (self.settings.plugins.psucontrol.warnIfPowerOffAboveMaxTemp()) {
+                        self.sendPSUCommand("getToolTemperatureState").done(function(data) {
+                            var currentTemp = data.highestToolTemperature;
+                            var threshold = self.settings.plugins.psucontrol.maxExtruderTemp();
+                            var roundedCurrentTemp = Math.round(currentTemp * 10) / 10;
+                            var roundedThreshold = Math.round(threshold * 10) / 10;
+
+                            if (currentTemp !== null && currentTemp !== undefined && currentTemp > threshold) {
+                                self.showHighTempPowerOffWarning(roundedCurrentTemp, roundedThreshold);
+                            } else {
+                                self.showStandardPowerOffWarning();
+                            }
+                        }).fail(function() {
+                            self.showStandardPowerOffWarning();
+                        });
+                    } else {
+                        self.showStandardPowerOffWarning();
+                    }
                 } else {
                     self.turnPSUOff();
                 }
