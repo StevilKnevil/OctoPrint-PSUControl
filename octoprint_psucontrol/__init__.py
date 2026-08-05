@@ -391,31 +391,7 @@ class PSUControl(octoprint.plugin.StartupPlugin,
             if not self._waitForHeaters:
                 return False
 
-            heaters = self._printer.get_current_temperatures()
-
-            highest_temp = 0
-            heaters_above_waittemp = []
-            for heater, entry in heaters.items():
-                if not heater.startswith("tool"):
-                    continue
-
-                actual = entry.get("actual")
-                if actual is None:
-                    # heater doesn't exist in fw
-                    continue
-
-                try:
-                    temp = float(actual)
-                except ValueError:
-                    # not a float for some reason, skip it
-                    continue
-
-                self._logger.debug("Heater {} = {}C".format(heater, temp))
-                if temp > self.config['idleTimeoutWaitTemp']:
-                    heaters_above_waittemp.append(heater)
-
-                if temp > highest_temp:
-                    highest_temp = temp
+            highest_temp, heaters_above_waittemp = self._get_tool_temperature_state()
 
             if highest_temp <= self.config['idleTimeoutWaitTemp']:
                 self._waitForHeaters = False
@@ -423,6 +399,37 @@ class PSUControl(octoprint.plugin.StartupPlugin,
 
             self._logger.info("Waiting for heaters({}) before shutting off PSU...".format(', '.join(heaters_above_waittemp)))
             time.sleep(5)
+
+
+    def _get_tool_temperature_state(self):
+        heaters = self._printer.get_current_temperatures()
+
+        highest_temp = 0
+        heaters_above_waittemp = []
+
+        for heater, entry in heaters.items():
+            if not heater.startswith("tool"):
+                continue
+
+            actual = entry.get("actual")
+            if actual is None:
+                # heater doesn't exist in fw
+                continue
+
+            try:
+                temp = float(actual)
+            except ValueError:
+                # not a float for some reason, skip it
+                continue
+
+            self._logger.debug("Heater {} = {}C".format(heater, temp))
+            if temp > self.config['idleTimeoutWaitTemp']:
+                heaters_above_waittemp.append(heater)
+
+            if temp > highest_temp:
+                highest_temp = temp
+
+        return highest_temp, heaters_above_waittemp
 
 
     def hook_gcode_queuing(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
@@ -606,7 +613,8 @@ class PSUControl(octoprint.plugin.StartupPlugin,
             turnPSUOn=[],
             turnPSUOff=[],
             togglePSU=[],
-            getPSUState=[]
+            getPSUState=[],
+            getToolTemperatureState=[]
         )
 
 
@@ -622,7 +630,7 @@ class PSUControl(octoprint.plugin.StartupPlugin,
             except:
                 if not user_permission.can():
                     return make_response("Insufficient rights", 403)
-        elif command in ['getPSUState']:
+        elif command in ['getPSUState', 'getToolTemperatureState']:
             try:
                 if not Permissions.STATUS.can():
                     return make_response("Insufficient rights", 403)
@@ -641,6 +649,9 @@ class PSUControl(octoprint.plugin.StartupPlugin,
                 self.turn_psu_on()
         elif command == 'getPSUState':
             return jsonify(isPSUOn=self.isPSUOn)
+        elif command == 'getToolTemperatureState':
+            highest_temp, heaters_above_waittemp = self._get_tool_temperature_state()
+            return jsonify(highestToolTemperature=highest_temp, heatersAboveWaitTemp=heaters_above_waittemp)
 
 
     def on_settings_save(self, data):
