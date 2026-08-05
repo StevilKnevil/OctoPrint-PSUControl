@@ -117,11 +117,17 @@ $(function() {
             });
         };
 
-        self.showHighTempPowerOffWarning = function(currentTemp, threshold) {
+        self.showHighTempPowerOffWarning = function(heatersAboveWaitTemp) {
+            var hotHeaters = heatersAboveWaitTemp.join(", ");
+
+            if (heatersAboveWaitTemp.length > 1) {
+                hotHeaters = heatersAboveWaitTemp.slice(0, -1).join(", ") + " and " + heatersAboveWaitTemp[heatersAboveWaitTemp.length - 1];
+            }
+
             showConfirmationDialog({
                 title: "Hot extruder detected",
-                message: "The extruder is currently at " + currentTemp + "°C, which is above the configured " + threshold + "°C wait temperature.",
-                question: "Turning the PSU off now can stop active heating immediately and may damage a print or cause unsafe cooling.",
+                message: "Heaters " + hotHeaters + " are still hot.",
+                question: "Turning the PSU off now can stop active cooling immediately and cause heat creep and jammed nozzles.",
                 cancel: "Keep PSU on",
                 proceed: "Turn PSU off now",
                 proceedClass: "danger",
@@ -137,13 +143,10 @@ $(function() {
                 if (self.settings.plugins.psucontrol.enablePowerOffWarningDialog()) {
                     if (self.settings.plugins.psucontrol.warnIfPowerOffAboveMaxTemp()) {
                         self.sendPSUCommand("getToolTemperatureState").done(function(data) {
-                            var currentTemp = data.highestToolTemperature;
-                            var threshold = self.settings.plugins.psucontrol.maxExtruderTemp();
-                            var roundedCurrentTemp = Math.round(currentTemp * 10) / 10;
-                            var roundedThreshold = Math.round(threshold * 10) / 10;
+                            var heatersAboveWaitTemp = data.heatersAboveWaitTemp;
 
-                            if (currentTemp !== null && currentTemp !== undefined && currentTemp > threshold) {
-                                self.showHighTempPowerOffWarning(roundedCurrentTemp, roundedThreshold);
+                            if (heatersAboveWaitTemp && heatersAboveWaitTemp.length > 0) {
+                                self.showHighTempPowerOffWarning(heatersAboveWaitTemp);
                             } else {
                                 self.showStandardPowerOffWarning();
                             }

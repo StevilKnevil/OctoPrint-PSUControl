@@ -392,9 +392,9 @@ class PSUControl(octoprint.plugin.StartupPlugin,
             if not self._waitForHeaters:
                 return False
 
-            highest_temp, heaters_above_waittemp = self._get_tool_temperature_state()
+            heaters_above_waittemp = self._get_tool_temperature_state()
 
-            if highest_temp <= self.config['maxExtruderTemp']:
+            if not heaters_above_waittemp or len(heaters_above_waittemp) == 0:
                 self._waitForHeaters = False
                 return True
 
@@ -405,7 +405,6 @@ class PSUControl(octoprint.plugin.StartupPlugin,
     def _get_tool_temperature_state(self):
         heaters = self._printer.get_current_temperatures()
 
-        highest_temp = 0
         heaters_above_waittemp = []
 
         for heater, entry in heaters.items():
@@ -427,10 +426,7 @@ class PSUControl(octoprint.plugin.StartupPlugin,
             if temp > self.config['maxExtruderTemp']:
                 heaters_above_waittemp.append(heater)
 
-            if temp > highest_temp:
-                highest_temp = temp
-
-        return highest_temp, heaters_above_waittemp
+        return heaters_above_waittemp
 
 
     def hook_gcode_queuing(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
@@ -651,8 +647,8 @@ class PSUControl(octoprint.plugin.StartupPlugin,
         elif command == 'getPSUState':
             return jsonify(isPSUOn=self.isPSUOn)
         elif command == 'getToolTemperatureState':
-            highest_temp, heaters_above_waittemp = self._get_tool_temperature_state()
-            return jsonify(highestToolTemperature=highest_temp, heatersAboveWaitTemp=heaters_above_waittemp)
+            heaters_above_waittemp = self._get_tool_temperature_state()
+            return jsonify(heatersAboveWaitTemp=heaters_above_waittemp)
 
 
     def on_settings_save(self, data):
