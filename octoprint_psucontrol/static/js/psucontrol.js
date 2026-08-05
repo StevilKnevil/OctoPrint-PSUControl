@@ -72,6 +72,18 @@ $(function() {
             }
         };
 
+        self.sendPSUCommand = function(command) {
+            return $.ajax({
+                url: API_BASEURL + "plugin/psucontrol",
+                type: "POST",
+                dataType: "json",
+                data: JSON.stringify({
+                    command: command
+                }),
+                contentType: "application/json; charset=UTF-8"
+            });
+        };
+
         self.onStartup = function () {
             self.isPSUOn.subscribe(function() {
                 if (self.isPSUOn()) {
@@ -81,15 +93,7 @@ $(function() {
                 }   
             });
 
-            $.ajax({
-                url: API_BASEURL + "plugin/psucontrol",
-                type: "POST",
-                dataType: "json",
-                data: JSON.stringify({
-                    command: "getPSUState"
-                }),
-                contentType: "application/json; charset=UTF-8"
-            }).done(function(data) {
+            self.sendPSUCommand("getPSUState").done(function(data) {
                 self.isPSUOn(data.isPSUOn);
             });
         }
@@ -122,27 +126,11 @@ $(function() {
         };
 
         self.turnPSUOn = function() {
-            $.ajax({
-                url: API_BASEURL + "plugin/psucontrol",
-                type: "POST",
-                dataType: "json",
-                data: JSON.stringify({
-                    command: "turnPSUOn"
-                }),
-                contentType: "application/json; charset=UTF-8"
-            })
+            self.sendPSUCommand("turnPSUOn");
         };
 
     	self.turnPSUOff = function() {
-            $.ajax({
-                url: API_BASEURL + "plugin/psucontrol",
-                type: "POST",
-                dataType: "json",
-                data: JSON.stringify({
-                    command: "turnPSUOff"
-                }),
-                contentType: "application/json; charset=UTF-8"
-            })
+            self.sendPSUCommand("turnPSUOff");
         };
 
         self.subPluginTabExists = function(id) {
