@@ -230,13 +230,6 @@
 
     <h4>Power Off Options</h4>
     <div class="control-group">
-        <div class="controls">
-            <label class="checkbox">
-            <input type="checkbox" data-bind="checked: settings.plugins.psucontrol.powerOffWhenIdle"> Automatically turn PSU OFF when idle
-            </label>
-        </div>
-    </div>
-    <div class="control-group">
         <label class="control-label">Extruder Max Temp</label>
         <div class="controls">
             <div class="input-append">
@@ -249,6 +242,13 @@
         <div class="controls">
             <label class="checkbox">
             <input type="checkbox" data-bind="checked: settings.plugins.psucontrol.warnIfPowerOffAboveMaxTemp"> Warn if power off above max temp
+            </label>
+        </div>
+    </div>
+    <div class="control-group">
+        <div class="controls">
+            <label class="checkbox">
+            <input type="checkbox" data-bind="checked: settings.plugins.psucontrol.powerOffWhenIdle"> Automatically turn PSU OFF when idle
             </label>
         </div>
     </div>
