@@ -4,6 +4,7 @@ $(function() {
 
         self.settingsViewModel = parameters[0]
         self.loginState = parameters[1];
+        self.temperature = parameters[2];
         
         self.settings = undefined;
 
@@ -16,6 +17,40 @@ $(function() {
         self.isPSUOn = ko.observable(undefined);
 
         self.psu_indicator = $("#psucontrol_indicator");
+
+        self.hottestToolTemperature = ko.computed(function() {
+            var hottestTemperature;
+
+            if (!self.temperature || !self.temperature.tools) {
+                return undefined;
+            }
+
+            $.each(self.temperature.tools(), function(index, tool) {
+                var actualTemperature = ko.unwrap(tool.actual);
+                var toolKey = ko.unwrap(tool.key);
+
+                if ($.isNumeric(actualTemperature) && typeof toolKey === "string" && toolKey.indexOf("tool") === 0) {
+                    hottestTemperature = hottestTemperature === undefined ? Number(actualTemperature) : Math.max(hottestTemperature, Number(actualTemperature));
+                }
+            });
+
+            return hottestTemperature;
+        });
+
+        self.updatePSUIndicatorTemperature = function() {
+            var fillPercentage = 0;
+            var minTemperature;
+
+            if (self.settings) {
+                minTemperature = Number(self.settings.plugins.psucontrol.maxExtruderTemp());
+
+                if ($.isNumeric(minTemperature) && self.hottestToolTemperature() !== undefined) {
+                    fillPercentage = Math.max(0, Math.min(100, (self.hottestToolTemperature() - minTemperature) * 2));
+                }
+            }
+
+            self.psu_indicator.find("i").css("background-position", "0 " + fillPercentage + "%");
+        };
 
         self.onBeforeBinding = function() {
             self.settings = self.settingsViewModel.settings;
@@ -44,6 +79,7 @@ $(function() {
 
             self.sensingPlugin_old = self.settings.plugins.psucontrol.sensingPlugin();
             self.switchingPlugin_old = self.settings.plugins.psucontrol.switchingPlugin();
+            self.settings.plugins.psucontrol.maxExtruderTemp.subscribe(self.updatePSUIndicatorTemperature);
         };
 
         self.onSettingsShown = function () {
@@ -90,11 +126,16 @@ $(function() {
                     self.psu_indicator.removeClass("off").addClass("on");
                 } else {
                     self.psu_indicator.removeClass("on").addClass("off");
-                }   
+                }
+
+                self.updatePSUIndicatorTemperature();
             });
+
+            self.hottestToolTemperature.subscribe(self.updatePSUIndicatorTemperature);
 
             self.sendPSUCommand("getPSUState").done(function(data) {
                 self.isPSUOn(data.isPSUOn);
+                self.updatePSUIndicatorTemperature();
             });
         }
 
@@ -183,7 +224,7 @@ $(function() {
 
     ADDITIONAL_VIEWMODELS.push([
         PSUControlViewModel,
-        ["settingsViewModel", "loginStateViewModel"],
+        ["settingsViewModel", "loginStateViewModel", "temperatureViewModel"],
         ["#navbar_plugin_psucontrol", "#settings_plugin_psucontrol"]
     ]);
 });
