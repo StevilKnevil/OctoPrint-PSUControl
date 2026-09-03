@@ -1,39 +1,13 @@
 @psucontrol-on-color: #00FF00;
 @psucontrol-off-color: #808080;
-@psucontrol-hot-color: #FF0000;
 
 #psucontrol_indicator {
-    i {
-        color: @psucontrol-off-color;
-        text-shadow: none;
-        filter: drop-shadow(1px 1px 0 rgba(0, 0, 0, 0.35));
-        transition: background-position 0.3s ease;
-    }
-
     &.on i {
         color: @psucontrol-on-color; 
     }
     
     &.off i {
         color: @psucontrol-off-color; 
-    }
-
-    &.on i {
-        background-image: linear-gradient(to top, @psucontrol-hot-color 50%, @psucontrol-on-color 50%);
-        background-position: 0 0;
-        background-size: 100% 200%;
-        background-clip: text;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-
-    &.off i {
-        background-image: linear-gradient(to top, @psucontrol-hot-color 50%, @psucontrol-off-color 50%);
-        background-position: 0 0;
-        background-size: 100% 200%;
-        background-clip: text;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
     }
 
     &.pending {

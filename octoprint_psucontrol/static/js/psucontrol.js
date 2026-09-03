@@ -37,20 +37,16 @@ $(function() {
             return hottestTemperature;
         });
 
-        self.updatePSUIndicatorTemperature = function() {
-            var fillPercentage = 0;
+        self.temperatureWarning = ko.pureComputed(function() {
             var minTemperature;
 
-            if (self.settings) {
-                minTemperature = Number(self.settings.plugins.psucontrol.maxExtruderTemp());
-
-                if ($.isNumeric(minTemperature) && self.hottestToolTemperature() !== undefined) {
-                    fillPercentage = Math.max(0, Math.min(100, (self.hottestToolTemperature() - minTemperature) * 2));
-                }
+            if (!self.settings) {
+                return false;
             }
 
-            self.psu_indicator.find("i").css("background-position", "0 " + fillPercentage + "%");
-        };
+            minTemperature = Number(self.settings.plugins.psucontrol.maxExtruderTemp());
+            return $.isNumeric(minTemperature) && self.hottestToolTemperature() > minTemperature;
+        });
 
         self.onBeforeBinding = function() {
             self.settings = self.settingsViewModel.settings;
@@ -79,7 +75,6 @@ $(function() {
 
             self.sensingPlugin_old = self.settings.plugins.psucontrol.sensingPlugin();
             self.switchingPlugin_old = self.settings.plugins.psucontrol.switchingPlugin();
-            self.settings.plugins.psucontrol.maxExtruderTemp.subscribe(self.updatePSUIndicatorTemperature);
         };
 
         self.onSettingsShown = function () {
@@ -127,15 +122,10 @@ $(function() {
                 } else {
                     self.psu_indicator.removeClass("on").addClass("off");
                 }
-
-                self.updatePSUIndicatorTemperature();
             });
-
-            self.hottestToolTemperature.subscribe(self.updatePSUIndicatorTemperature);
 
             self.sendPSUCommand("getPSUState").done(function(data) {
                 self.isPSUOn(data.isPSUOn);
-                self.updatePSUIndicatorTemperature();
             });
         }
 
