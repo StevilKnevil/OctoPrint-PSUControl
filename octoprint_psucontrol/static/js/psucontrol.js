@@ -2,6 +2,18 @@ $(function() {
     function PSUControlViewModel(parameters) {
         var self = this;
 
+        self.doCommand = function(command) {
+            return $.ajax({
+                url: API_BASEURL + "plugin/psucontrol",
+                type: "POST",
+                dataType: "json",
+                data: JSON.stringify({
+                    command: command
+                }),
+                contentType: "application/json; charset=UTF-8"
+            });
+        };
+
         self.settingsViewModel = parameters[0]
         self.loginState = parameters[1];
         self.temperature = parameters[2];
@@ -110,15 +122,7 @@ $(function() {
                 }   
             });
 
-            $.ajax({
-                url: API_BASEURL + "plugin/psucontrol",
-                type: "POST",
-                dataType: "json",
-                data: JSON.stringify({
-                    command: "getPSUState"
-                }),
-                contentType: "application/json; charset=UTF-8"
-            }).done(function(data) {
+            self.doCommand("getPSUState").done(function(data) {
                 self.isPSUOn(data.isPSUOn);
             });
         }
@@ -139,39 +143,15 @@ $(function() {
                     showConfirmationDialog({
                         message: "You are about to turn off the PSU.",
                         onproceed: function() {
-                            self.turnPSUOff();
+                            self.doCommand("turnPSUOff");
                         }
                     });
                 } else {
-                    self.turnPSUOff();
+                    self.doCommand("turnPSUOff");
                 }
             } else {
-                self.turnPSUOn();
+                self.doCommand("turnPSUOn");
             }
-        };
-
-        self.turnPSUOn = function() {
-            $.ajax({
-                url: API_BASEURL + "plugin/psucontrol",
-                type: "POST",
-                dataType: "json",
-                data: JSON.stringify({
-                    command: "turnPSUOn"
-                }),
-                contentType: "application/json; charset=UTF-8"
-            })
-        };
-
-    	self.turnPSUOff = function() {
-            $.ajax({
-                url: API_BASEURL + "plugin/psucontrol",
-                type: "POST",
-                dataType: "json",
-                data: JSON.stringify({
-                    command: "turnPSUOff"
-                }),
-                contentType: "application/json; charset=UTF-8"
-            })
         };
 
         self.subPluginTabExists = function(id) {
