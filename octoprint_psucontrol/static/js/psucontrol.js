@@ -27,8 +27,20 @@ $(function() {
         self.scripts_gcode_psucontrol_pre_off = ko.observable(undefined);
 
         self.isPSUOn = ko.observable(undefined);
+        self.powerOffWhenCool = false;
+        self.cooldownSubscription = undefined;
 
         self.psu_indicator = $("#psucontrol_indicator");
+
+        self.updateIndicator = function() {
+            self.psu_indicator.toggleClass("pending", self.powerOffWhenCool);
+
+            if (self.isPSUOn()) {
+                self.psu_indicator.removeClass("off").addClass("on");
+            } else {
+                self.psu_indicator.removeClass("on").addClass("off");
+            }
+        };
 
         self.hottestToolTemperature = ko.computed(function() {
             var hottestTemperature;
@@ -115,11 +127,10 @@ $(function() {
 
         self.onStartup = function () {
             self.isPSUOn.subscribe(function() {
-                if (self.isPSUOn()) {
-                    self.psu_indicator.removeClass("off").addClass("on");
-                } else {
-                    self.psu_indicator.removeClass("on").addClass("off");
-                }   
+                if (!self.isPSUOn()) {
+                    self.cancelPowerOffWhenCool();
+                }
+                self.updateIndicator();
             });
 
             self.doCommand("getPSUState").done(function(data) {
@@ -137,12 +148,113 @@ $(function() {
             }
         };
 
+        self.getTemperatureStatus = function() {
+            if (!self.settings) {
+                return "unknown";
+            }
+
+            var safeTemperature = Number(self.settings.plugins.psucontrol.safePowerOffTemp());
+            var hottestTemperature = self.hottestToolTemperature();
+            if (!$.isNumeric(safeTemperature) || !$.isNumeric(hottestTemperature)) {
+                return "unknown";
+            }
+
+            return hottestTemperature <= safeTemperature ? "safe" : "tooHigh";
+        };
+
+        self.isTemperatureSafe = function() {
+            return self.getTemperatureStatus() === "safe";
+        };
+
+        self.isTemperatureTooHigh = function() {
+            return self.getTemperatureStatus() === "tooHigh";
+        };
+
+        self.cancelPowerOffWhenCool = function() {
+            if (self.cooldownSubscription) {
+                self.cooldownSubscription.dispose();
+                self.cooldownSubscription = undefined;
+            }
+
+            self.powerOffWhenCool = false;
+            self.updateIndicator();
+        };
+
+        self.startPowerOffWhenCool = function() {
+            self.powerOffWhenCool = true;
+            self.updateIndicator();
+
+            self.cooldownSubscription = self.hottestToolTemperature.subscribe(function() {
+                if (!self.powerOffWhenCool || !self.isTemperatureSafe()) {
+                    return;
+                }
+
+                self.cancelPowerOffWhenCool();
+                self.doCommand("turnPSUOff");
+            });
+
+            if (self.isTemperatureSafe()) {
+                self.cancelPowerOffWhenCool();
+                self.doCommand("turnPSUOff");
+            }
+        };
+
+        self.showHighTemperatureDialog = function() {
+            var dialog = showConfirmationDialog({
+                title: "PSU power off",
+                message: "The printer is too hot to safely turn off the PSU.",
+                cancel: "Cancel",
+                proceed: ["Power off anyway", "Power off when cool"],
+                proceedClass: "primary",
+                onproceed: function(index) {
+                    self.psu_indicator.trigger("focus");
+
+                    if (index === 0) {
+                        self.doCommand("turnPSUOff");
+                    } else if (index === 1) {
+                        self.startPowerOffWhenCool();
+                    }
+                },
+                oncancel: function() {
+                    self.psu_indicator.trigger("focus");
+                }
+            });
+            dialog.find(".modal-footer .btn").eq(1).removeClass("btn-primary").addClass("btn-danger");
+        };
+
+        self.showPendingPowerOffDialog = function() {
+            showConfirmationDialog({
+                title: "PSU power off",
+                message: "The PSU will turn off when the printer is cool.",
+                cancel: "Cancel power off",
+                proceed: "Continue waiting",
+                proceedClass: "primary",
+                onproceed: function() {
+                    self.psu_indicator.trigger("focus");
+                },
+                oncancel: function() {
+                    self.psu_indicator.trigger("focus");
+                    self.cancelPowerOffWhenCool();
+                }
+            });
+        };
+
         self.togglePSU = function() {
             if (self.isPSUOn()) {
+                if (self.powerOffWhenCool) {
+                    self.showPendingPowerOffDialog();
+                    return;
+                }
+
+                if (self.isTemperatureTooHigh()) {
+                    self.showHighTemperatureDialog();
+                    return;
+                }
+
                 if (self.settings.plugins.psucontrol.enablePowerOffWarningDialog()) {
                     showConfirmationDialog({
                         message: "You are about to turn off the PSU.",
-                        onproceed: function() {
+                        onproceed: function() { 
                             self.doCommand("turnPSUOff");
                         }
                     });
