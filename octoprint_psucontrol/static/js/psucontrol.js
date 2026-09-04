@@ -17,7 +17,7 @@ $(function() {
         self.settingsViewModel = parameters[0]
         self.loginState = parameters[1];
         self.temperature = parameters[2];
-        
+
         self.settings = undefined;
 
         self.sensingPlugin_old = "";
@@ -69,6 +69,28 @@ $(function() {
             var maxTemperature = Number(self.settings.plugins.psucontrol.safePowerOffTemp());
             return $.isNumeric(maxTemperature) && self.hottestToolTemperature() > maxTemperature;
         });
+
+        self.getTemperatureStatus = function() {
+            if (!self.settings) {
+                return "unknown";
+            }
+
+            var safeTemperature = Number(self.settings.plugins.psucontrol.safePowerOffTemp());
+            var hottestTemperature = self.hottestToolTemperature();
+            if (!$.isNumeric(safeTemperature) || !$.isNumeric(hottestTemperature)) {
+                return "unknown";
+            }
+
+            return hottestTemperature <= safeTemperature ? "safe" : "tooHigh";
+        };
+
+        self.isTemperatureSafe = function() {
+            return self.getTemperatureStatus() === "safe";
+        };
+
+        self.isTemperatureTooHigh = function() {
+            return self.getTemperatureStatus() === "tooHigh";
+        };
 
         self.onBeforeBinding = function() {
             self.settings = self.settingsViewModel.settings;
@@ -148,28 +170,6 @@ $(function() {
             }
         };
 
-        self.getTemperatureStatus = function() {
-            if (!self.settings) {
-                return "unknown";
-            }
-
-            var safeTemperature = Number(self.settings.plugins.psucontrol.safePowerOffTemp());
-            var hottestTemperature = self.hottestToolTemperature();
-            if (!$.isNumeric(safeTemperature) || !$.isNumeric(hottestTemperature)) {
-                return "unknown";
-            }
-
-            return hottestTemperature <= safeTemperature ? "safe" : "tooHigh";
-        };
-
-        self.isTemperatureSafe = function() {
-            return self.getTemperatureStatus() === "safe";
-        };
-
-        self.isTemperatureTooHigh = function() {
-            return self.getTemperatureStatus() === "tooHigh";
-        };
-
         self.cancelPowerOffWhenCool = function() {
             if (self.cooldownSubscription) {
                 self.cooldownSubscription.dispose();
@@ -239,6 +239,15 @@ $(function() {
             });
         };
 
+        self.showPowerOffDialog = function() {
+            showConfirmationDialog({
+                message: "You are about to turn off the PSU.",
+                onproceed: function() {
+                    self.doCommand("turnPSUOff");
+                }
+            });
+        };
+
         self.togglePSU = function() {
             if (self.isPSUOn()) {
                 if (self.powerOffWhenCool) {
@@ -252,12 +261,7 @@ $(function() {
                 }
 
                 if (self.settings.plugins.psucontrol.enablePowerOffWarningDialog()) {
-                    showConfirmationDialog({
-                        message: "You are about to turn off the PSU.",
-                        onproceed: function() { 
-                            self.doCommand("turnPSUOff");
-                        }
-                    });
+                    self.showPowerOffDialog();
                 } else {
                     self.doCommand("turnPSUOff");
                 }
